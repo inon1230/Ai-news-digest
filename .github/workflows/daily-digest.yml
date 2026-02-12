@@ -1,0 +1,76 @@
+name: AI News Digest - Daily Summary
+
+on:
+  schedule:
+    - cron: '0 8 * * *'
+  workflow_dispatch:
+
+jobs:
+  generate-digest:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      - name: Run AI News Digest
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          python news_digest.py
+      
+      - name: Upload digest as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-news-digest-${{ github.run_number }}
+          path: ai_news_digest_*.txt
+          retention-days: 30
+```
+
+5. לחץ **"Commit changes"**
+
+---
+
+### 4️⃣ **בדיקה שזה עבד:**
+
+1. לך ל-**"Actions"** בתפריט העליון
+2. אמור לראות עכשיו: **"AI News Digest - Daily Summary"**
+3. אם עדיין לא רואה - רענן את הדף (F5)
+
+---
+
+### 5️⃣ **אם עדיין לא רואה:**
+
+זה יכול להיות אחד מהבעיות הבאות:
+
+**❌ Actions מושבת ב-Repository:**
+1. לך ל-**Settings** → **Actions** → **General**
+2. תחת "Actions permissions", ודא שמסומן:
+   - ✅ "Allow all actions and reusable workflows"
+3. לחץ **"Save"**
+
+**❌ יש טעות בקובץ YAML:**
+- YAML רגיש מאוד לרווחים
+- ודא שהעתקת בדיוק כמו למעלה
+- אל תשתמש ב-Tabs, רק רווחים
+
+---
+
+## 📸 מה אמור להיראות:
+
+כשזה עובד, תראה ככה:
+```
+Actions (טאב)
+  └── All workflows
+      └── AI News Digest - Daily Summary  ← זה מה שצריך לראות
+          [Run workflow ▼]
