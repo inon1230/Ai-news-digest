@@ -1,0 +1,56 @@
+name: AI News Digest - Daily Summary
+
+# מתי להריץ את האוטומציה
+on:
+  schedule:
+    # כל יום בשעה 08:00 UTC (10:00 בישראל בחורף, 11:00 בקיץ)
+    - cron: '0 8 * * *'
+  
+  # אפשרות להריץ ידנית מה-GitHub UI
+  workflow_dispatch:
+
+jobs:
+  generate-digest:
+    runs-on: ubuntu-latest
+    
+    steps:
+      # שלב 1: שליפת הקוד מה-Repository
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      # שלב 2: הגדרת Python
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      # שלב 3: התקנת תלויות
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      # שלב 4: הרצת הסקריפט
+      - name: Run AI News Digest
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          python news_digest.py
+      
+      # שלב 5: העלאת הקובץ שנוצר כ-Artifact
+      - name: Upload digest as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-news-digest-${{ github.run_number }}
+          path: ai_news_digest_*.txt
+          retention-days: 30
+      
+      # שלב 6 (אופציונלי): שמירת הקובץ ב-Repository
+      - name: Commit and push digest (optional)
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add ai_news_digest_*.txt || true
+          git commit -m "📰 Daily AI News Digest - $(date +'%Y-%m-%d')" || true
+          git push || true
+        continue-on-error: true
