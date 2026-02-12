@@ -37,40 +37,5 @@ jobs:
           retention-days: 30
 
 
-5. לחץ **"Commit changes"**
 
----
 
-### 4️⃣ **בדיקה שזה עבד:**
-
-1. לך ל-**"Actions"** בתפריט העליון
-2. אמור לראות עכשיו: **"AI News Digest - Daily Summary"**
-3. אם עדיין לא רואה - רענן את הדף (F5)
-
----
-
-### 5️⃣ **אם עדיין לא רואה:**
-
-זה יכול להיות אחד מהבעיות הבאות:
-
-**❌ Actions מושבת ב-Repository:**
-1. לך ל-**Settings** → **Actions** → **General**
-2. תחת "Actions permissions", ודא שמסומן:
-   - ✅ "Allow all actions and reusable workflows"
-3. לחץ **"Save"**
-
-**❌ יש טעות בקובץ YAML:**
-- YAML רגיש מאוד לרווחים
-- ודא שהעתקת בדיוק כמו למעלה
-- אל תשתמש ב-Tabs, רק רווחים
-
----
-
-## 📸 מה אמור להיראות:
-
-כשזה עובד, תראה ככה:
-```
-Actions (טאב)
-  └── All workflows
-      └── AI News Digest - Daily Summary  ← זה מה שצריך לראות
-          [Run workflow ▼]
