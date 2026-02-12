@@ -35,7 +35,7 @@ jobs:
           name: ai-news-digest-${{ github.run_number }}
           path: ai_news_digest_*.txt
           retention-days: 30
-```
+
 
 5. לחץ **"Commit changes"**
 
