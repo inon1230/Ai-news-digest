@@ -125,11 +125,11 @@ def analyze_and_summarize_with_claude(articles: List[Dict]) -> str:
         # בדיקה שיש API Key
         api_key = os.environ.get("ANTHROPIC_API_KEY")
         if not api_key:
-            error_msg = "❌ שגיאה: ANTHROPIC_API_KEY לא נמצא ב-environment variables"
+            error_msg = "❌ שגיאה: ANTHROPIC_API_KEY לא נמצא"
             print(error_msg)
             return error_msg
         
-        # קריאה ל-Claude API - ללא פרמטרים מיותרים
+        # התיקון החשוב: רק api_key, בלי proxies!
         client = Anthropic(api_key=api_key)
         
         message = client.messages.create(
@@ -147,7 +147,6 @@ def analyze_and_summarize_with_claude(articles: List[Dict]) -> str:
     except Exception as e:
         error_msg = f"❌ שגיאה בקריאה ל-Claude API: {str(e)}"
         print(error_msg)
-        # מדפיס את כל המידע לדיבוג
         import traceback
         traceback.print_exc()
         return f"שגיאה בעיבוד: {str(e)}"
