@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 AI News Digest - אוטומציה לסיכום חדשות AI
-גרסה: 1.2 (Direct API)
+גרסה: 2.0 (שיפורים מלאים)
 """
 
 import os
@@ -28,7 +28,7 @@ NEWS_SOURCES = {
     "Google AI Blog": "http://googleresearch.blogspot.com/feeds/posts/default",
 }
 
-# הגדרות זמן - כמה שעות אחורה לחפש חדשות
+# הגדרות זמן
 HOURS_BACK = 24
 
 # הגדרות Claude API
@@ -36,15 +36,17 @@ CLAUDE_MODEL = "claude-sonnet-4-20250514"
 MAX_TOKENS = 4000
 ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages"
 
+# הגדרות טלגרם (אופציונלי)
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
+TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
+
 
 # =====================================================
 # חלק 2: איסוף חדשות מ-RSS
 # =====================================================
 
 def fetch_news_from_sources(hours_back: int = HOURS_BACK) -> List[Dict]:
-    """
-    אוסף חדשות מכל המקורות
-    """
+    """אוסף חדשות מכל המקורות"""
     print(f"🔍 מחפש חדשות מ-{hours_back} שעות אחורה...")
     
     all_articles = []
@@ -80,33 +82,40 @@ def fetch_news_from_sources(hours_back: int = HOURS_BACK) -> List[Dict]:
 
 
 # =====================================================
-# חלק 3: סינון וסיכום עם Claude (Direct API)
+# חלק 3: סינון וסיכום עם Claude (עברית משופרת)
 # =====================================================
 
 def analyze_and_summarize_with_claude(articles: List[Dict]) -> str:
-    """
-    שולח את הכתבות ל-Claude לסינון וסיכום - בשימוש ישיר ב-API
-    """
+    """שולח את הכתבות ל-Claude לסינון וסיכום"""
     if not articles:
         return "לא נמצאו חדשות חדשות ב-24 שעות האחרונות."
     
     print(f"🤖 שולח {len(articles)} כתבות ל-Claude לניתוח...")
     
-    # בונה את הפרומפט ל-Claude
     articles_text = "\n\n".join([
         f"[{i+1}] {art['source']}\nכותרת: {art['title']}\nתקציר: {art['summary'][:300]}...\nקישור: {art['link']}"
         for i, art in enumerate(articles)
     ])
     
-    prompt = f"""אתה עוזר שמתמחה בסיכום חדשות טכנולוגיה בתחום ה-AI.
+    # פרומפט משופר לעברית טבעית יותר
+    prompt = f"""אתה עיתונאי טכנולוגיה ישראלי מומחה בתחום הבינה המלאכותית.
 
-קיבלת {len(articles)} כתבות מהיממה האחרונה.
+קיבלת {len(articles)} כתבות מ-8 מקורות שונים שפורסמו ב-24 שעות האחרונות.
 
 המשימה שלך:
-1. סנן את הכתבות - השאר רק את אלו שבאמת מעניינות ורלוונטיות (התפתחויות משמעותיות, מוצרים חדשים, מחקרים חשובים)
-2. צור סיכום תמציתי בעברית, מקסימום 500 מילים
-3. חלק לקטגוריות: מוצרים חדשים, מחקרים, חברות וכסף, אחר
-4. כתוב בצורה ישירה וברורה, בלי מלל מיותר
+1. קרא את כל הכתבות וזהה את הנושאים החשובים
+2. אם כמה מקורות דיווחו על אותו נושא - צלוב את המידע ביניהם
+3. סנן החוצה חדשות לא רלוונטיות או משניות
+4. כתוב סיכום תמציתי בעברית טבעית ושוטפת (לא תרגום מילולי!)
+5. השתמש בסדר מילים ישראלי טבעי (נושא-פועל-מושא)
+6. חלק לקטגוריות: מוצרים חדשים | מחקרים | חברות והשקעות | כללי
+
+דרישות כתיבה:
+- כתוב במשפטים קצרים וברורים
+- השתמש בשפה עיתונאית ישראלית (לא ספרותית)
+- דוגמאות טובות: "OpenAI השיקה...", "חוקרים גילו...", "החברה גייסה..."
+- דוגמאות רעות: "הושק על ידי OpenAI...", "התגלה כי..."
+- מקסימום 500 מילים
 
 הכתבות:
 {articles_text}
@@ -114,23 +123,27 @@ def analyze_and_summarize_with_claude(articles: List[Dict]) -> str:
 פורמט הסיכום:
 # 📰 סיכום חדשות AI - {datetime.now().strftime('%d/%m/%Y')}
 
-[הסיכום שלך כאן - תמציתי וממוקד]
+## 🆕 מוצרים ושירותים חדשים
+[כאן הסיכום]
+
+## 🔬 מחקר ופיתוח
+[כאן הסיכום]
+
+## 💰 חברות והשקעות
+[כאן הסיכום]
+
+## 📌 כללי
+[כאן הסיכום]
 
 ---
-מקורות: [רשימת המקורות שמהם לקחת]
+**מקורות:** [רשימת המקורות שמהם לקחת מידע]
 """
 
     try:
-        # בדיקה שיש API Key
         api_key = os.environ.get("ANTHROPIC_API_KEY")
         if not api_key:
-            error_msg = "❌ שגיאה: ANTHROPIC_API_KEY לא נמצא"
-            print(error_msg)
-            return error_msg
+            return "❌ שגיאה: ANTHROPIC_API_KEY לא נמצא"
         
-        print(f"🔑 API Key נמצא (מתחיל ב-{api_key[:10]}...)")
-        
-        # קריאה ישירה ל-API עם requests
         headers = {
             "x-api-key": api_key,
             "anthropic-version": "2023-06-01",
@@ -140,20 +153,14 @@ def analyze_and_summarize_with_claude(articles: List[Dict]) -> str:
         payload = {
             "model": CLAUDE_MODEL,
             "max_tokens": MAX_TOKENS,
-            "messages": [
-                {"role": "user", "content": prompt}
-            ]
+            "messages": [{"role": "user", "content": prompt}]
         }
         
-        print("📡 שולח בקשה ל-API...")
+        print("📡 שולח בקשה ל-Claude API...")
         response = requests.post(ANTHROPIC_API_URL, headers=headers, json=payload, timeout=120)
         
-        print(f"📊 Response status: {response.status_code}")
-        
         if response.status_code != 200:
-            error_msg = f"❌ שגיאה מה-API: {response.status_code} - {response.text}"
-            print(error_msg)
-            return error_msg
+            return f"❌ שגיאה: {response.status_code} - {response.text}"
         
         result = response.json()
         summary = result['content'][0]['text']
@@ -162,28 +169,62 @@ def analyze_and_summarize_with_claude(articles: List[Dict]) -> str:
         return summary
         
     except Exception as e:
-        error_msg = f"❌ שגיאה בקריאה ל-Claude API: {str(e)}"
-        print(error_msg)
+        print(f"❌ שגיאה: {str(e)}")
         import traceback
         traceback.print_exc()
         return f"שגיאה בעיבוד: {str(e)}"
 
 
 # =====================================================
-# חלק 4: שמירת הפלט
+# חלק 4: שליחה לטלגרם
+# =====================================================
+
+def send_to_telegram(message: str) -> bool:
+    """שולח הודעה לטלגרם"""
+    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
+        print("⚠️  טלגרם לא מוגדר (חסרים TELEGRAM_BOT_TOKEN או TELEGRAM_CHAT_ID)")
+        return False
+    
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    
+    # חלוקה להודעות אם ארוך מדי
+    max_length = 4000
+    if len(message) > max_length:
+        parts = [message[i:i+max_length] for i in range(0, len(message), max_length)]
+        for i, part in enumerate(parts, 1):
+            payload = {
+                "chat_id": TELEGRAM_CHAT_ID,
+                "text": f"📄 חלק {i}/{len(parts)}:\n\n{part}",
+                "parse_mode": "Markdown"
+            }
+            requests.post(url, json=payload)
+    else:
+        payload = {
+            "chat_id": TELEGRAM_CHAT_ID,
+            "text": message,
+            "parse_mode": "Markdown"
+        }
+        response = requests.post(url, json=payload)
+        if response.status_code == 200:
+            print("✅ הסיכום נשלח לטלגרם!")
+            return True
+    
+    return False
+
+
+# =====================================================
+# חלק 5: שמירת פלט
 # =====================================================
 
 def save_output(summary: str, output_format: str = "txt"):
-    """
-    שומר את הסיכום בפורמט הרצוי
-    """
+    """שומר את הסיכום בפורמט הרצוי"""
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     
     if output_format == "txt":
         filename = f"ai_news_digest_{timestamp}.txt"
         with open(filename, 'w', encoding='utf-8') as f:
             f.write(summary)
-        print(f"💾 נשמר בקובץ: {filename}")
+        print(f"💾 נשמר: {filename}")
         return filename
     
     elif output_format == "json":
@@ -195,36 +236,37 @@ def save_output(summary: str, output_format: str = "txt"):
         }
         with open(filename, 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
-        print(f"💾 נשמר בקובץ JSON: {filename}")
+        print(f"💾 נשמר: {filename}")
         return filename
 
 
 # =====================================================
-# חלק 5: Main Function
+# חלק 6: Main Function
 # =====================================================
 
 def main():
-    """
-    הפונקציה הראשית שמריצה את כל התהליך
-    """
+    """הפונקציה הראשית"""
     print("=" * 60)
     print("🚀 AI News Digest - מתחיל לעבוד...")
     print("=" * 60 + "\n")
     
-    # שלב 1: איסוף חדשות
+    # איסוף חדשות
     articles = fetch_news_from_sources()
     
     if not articles:
         print("⚠️  לא נמצאו כתבות חדשות")
         return
     
-    # שלב 2: ניתוח וסיכום
+    # סיכום
     summary = analyze_and_summarize_with_claude(articles)
     
-    # שלב 3: שמירה
+    # שמירה
     output_file = save_output(summary, output_format="txt")
     
-    # הדפסת הסיכום למסך
+    # שליחה לטלגרם (אם מוגדר)
+    send_to_telegram(summary)
+    
+    # הדפסה
     print("\n" + "=" * 60)
     print("📋 הסיכום:")
     print("=" * 60)
