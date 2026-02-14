@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 AI News Digest - אוטומציה לסיכום חדשות AI
-גרסה: 1.0
+גרסה: 1.1 (Fixed)
 """
 
 import os
@@ -122,8 +122,15 @@ def analyze_and_summarize_with_claude(articles: List[Dict]) -> str:
 """
 
     try:
-        # קריאה ל-Claude API
-        client = Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+        # בדיקה שיש API Key
+        api_key = os.environ.get("ANTHROPIC_API_KEY")
+        if not api_key:
+            error_msg = "❌ שגיאה: ANTHROPIC_API_KEY לא נמצא ב-environment variables"
+            print(error_msg)
+            return error_msg
+        
+        # קריאה ל-Claude API - ללא פרמטרים מיותרים
+        client = Anthropic(api_key=api_key)
         
         message = client.messages.create(
             model=CLAUDE_MODEL,
@@ -138,8 +145,12 @@ def analyze_and_summarize_with_claude(articles: List[Dict]) -> str:
         return summary
         
     except Exception as e:
-        print(f"❌ שגיאה בקריאה ל-Claude API: {e}")
-        return f"שגיאה בעיבוד: {e}"
+        error_msg = f"❌ שגיאה בקריאה ל-Claude API: {str(e)}"
+        print(error_msg)
+        # מדפיס את כל המידע לדיבוג
+        import traceback
+        traceback.print_exc()
+        return f"שגיאה בעיבוד: {str(e)}"
 
 
 # =====================================================
