@@ -1,13 +1,3 @@
-# תלויות Python לפרויקט AI News Digest
-
-# לעבודה עם RSS feeds
 feedparser==6.0.11
-
-# לקריאה ל-Claude API
-anthropic==0.39.0
-
-# לבקשות HTTP (במקרה שנצטרך)
+anthropic==0.18.1
 requests==2.31.0
-
-# ליצירת PDF (אופציונלי - רק אם רוצים PDF)
-reportlab==4.0.7
