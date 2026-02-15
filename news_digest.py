@@ -1,371 +1,208 @@
 #!/usr/bin/env python3
 """
-AI News Digest - אוטומציה לסיכום חדשות AI
-גרסה: 3.0 (Ultimate) - טלגרם + PDF + מקורות משופרים
+PDF Generator for AI News Digest
+Creates beautifully formatted PDF reports
 """
 
-import os
-import sys
-import json
-import requests
-from datetime import datetime, timedelta
-from typing import List, Dict
-import feedparser
-
-# יבוא PDF generator (אם קיים)
-try:
-    from pdf_generator import create_pdf_digest
-    PDF_AVAILABLE = True
-    print("✅ מודול PDF זמין")
-except ImportError:
-    PDF_AVAILABLE = False
-    print("⚠️  מודול PDF לא זמין - PDF לא ייווצר")
-
-# =====================================================
-# חלק 1: הגדרות וקונפיגורציה
-# =====================================================
-
-# רשימת אתרי החדשות (RSS Feeds)
-NEWS_SOURCES = {
-    "TechCrunch AI": "https://techcrunch.com/category/artificial-intelligence/feed/",
-    "VentureBeat AI": "https://venturebeat.com/category/ai/feed/",
-    "MIT Technology Review AI": "https://www.technologyreview.com/topic/artificial-intelligence/feed",
-    "The Verge AI": "https://www.theverge.com/ai-artificial-intelligence/rss/index.xml",
-    "Ars Technica AI": "https://feeds.arstechnica.com/arstechnica/technology-lab",
-    "OpenAI Blog": "https://openai.com/blog/rss/",
-    "Anthropic News": "https://www.anthropic.com/news/rss.xml",
-    "Google AI Blog": "http://googleresearch.blogspot.com/feeds/posts/default",
-}
-
-# הגדרות זמן - כמה שעות אחורה לחפש חדשות
-HOURS_BACK = 24
-
-# הגדרות Claude API
-CLAUDE_MODEL = "claude-sonnet-4-20250514"
-MAX_TOKENS = 4000
-ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages"
+from reportlab.lib.pagesizes import A4
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib.enums import TA_RIGHT, TA_CENTER
+from datetime import datetime
+import re
 
 
-# =====================================================
-# חלק 2: איסוף חדשות מ-RSS
-# =====================================================
-
-def fetch_news_from_sources(hours_back: int = HOURS_BACK) -> List[Dict]:
+def create_pdf_digest(summary: str, filename: str = None) -> str:
     """
-    אוסף חדשות מכל המקורות
+    Creates a beautifully formatted PDF from the summary
+    
+    Args:
+        summary: The text summary
+        filename: Output filename (optional)
+    
+    Returns:
+        Path to the created file
     """
-    print(f"🔍 מחפש חדשות מ-{hours_back} שעות אחורה...")
+    if not filename:
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f"ai_news_digest_{timestamp}.pdf"
     
-    all_articles = []
-    cutoff_time = datetime.now() - timedelta(hours=hours_back)
-    sources_count = {}
+    print(f"Creating PDF: {filename}")
     
-    for source_name, feed_url in NEWS_SOURCES.items():
-        try:
-            print(f"  📰 קורא: {source_name}")
-            feed = feedparser.parse(feed_url)
-            
-            count = 0
-            for entry in feed.entries[:15]:
-                published = entry.get('published_parsed', entry.get('updated_parsed'))
-                if published:
-                    pub_date = datetime(*published[:6])
-                    if pub_date < cutoff_time:
-                        continue
-                
-                article = {
-                    'source': source_name,
-                    'title': entry.get('title', 'ללא כותרת'),
-                    'link': entry.get('link', ''),
-                    'summary': entry.get('summary', entry.get('description', '')),
-                    'published': pub_date.strftime('%Y-%m-%d %H:%M') if published else 'לא ידוע'
-                }
-                all_articles.append(article)
-                count += 1
-            
-            sources_count[source_name] = count
-            if count > 0:
-                print(f"     ✓ נמצאו {count} כתבות")
-            else:
-                print(f"     - אין כתבות חדשות")
-                
-        except Exception as e:
-            print(f"  ⚠️  שגיאה בקריאת {source_name}: {e}")
+    # Create document
+    doc = SimpleDocTemplate(
+        filename,
+        pagesize=A4,
+        rightMargin=0.75*inch,
+        leftMargin=0.75*inch,
+        topMargin=0.75*inch,
+        bottomMargin=0.75*inch
+    )
+    
+    elements = []
+    styles = getSampleStyleSheet()
+    
+    # Custom styles
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=26,
+        textColor=colors.HexColor('#1e40af'),
+        spaceAfter=10,
+        alignment=TA_CENTER,
+        fontName='Helvetica-Bold'
+    )
+    
+    subtitle_style = ParagraphStyle(
+        'Subtitle',
+        parent=styles['Normal'],
+        fontSize=12,
+        textColor=colors.HexColor('#64748b'),
+        spaceAfter=25,
+        alignment=TA_CENTER
+    )
+    
+    section_title_style = ParagraphStyle(
+        'SectionTitle',
+        parent=styles['Heading2'],
+        fontSize=16,
+        textColor=colors.HexColor('#dc2626'),
+        spaceAfter=10,
+        spaceBefore=18,
+        fontName='Helvetica-Bold'
+    )
+    
+    content_style = ParagraphStyle(
+        'Content',
+        parent=styles['BodyText'],
+        fontSize=10,
+        leading=16,
+        textColor=colors.HexColor('#1e293b'),
+        spaceAfter=8,
+        alignment=TA_RIGHT
+    )
+    
+    # Build document
+    
+    # Title
+    title = Paragraph("AI News Digest", title_style)
+    elements.append(title)
+    
+    # Date
+    current_date = datetime.now().strftime('%d/%m/%Y')
+    date_para = Paragraph(f"Daily Summary - {current_date}", subtitle_style)
+    elements.append(date_para)
+    
+    # Separator
+    elements.append(Spacer(1, 0.2*inch))
+    
+    # Process content
+    lines = summary.split('\n')
+    
+    for line in lines:
+        line = line.strip()
+        
+        if not line:
+            elements.append(Spacer(1, 0.1*inch))
             continue
-    
-    # סיכום
-    total_sources = sum(1 for c in sources_count.values() if c > 0)
-    print(f"\n📊 סיכום איסוף:")
-    print(f"   • סה\"כ כתבות: {len(all_articles)}")
-    print(f"   • מקורות פעילים: {total_sources}/{len(NEWS_SOURCES)}")
-    print()
-    
-    return all_articles
-
-
-# =====================================================
-# חלק 3: סינון וסיכום עם Claude (עברית משופרת + מעקב מקורות)
-# =====================================================
-
-def analyze_and_summarize_with_claude(articles: List[Dict]) -> str:
-    """
-    שולח את הכתבות ל-Claude לסינון וסיכום
-    """
-    if not articles:
-        return "לא נמצאו חדשות חדשות ב-24 שעות האחרונות."
-    
-    print(f"🤖 שולח {len(articles)} כתבות ל-Claude לניתוח...")
-    
-    # בניית רשימת מקורות זמינים
-    sources_available = sorted(set([art['source'] for art in articles]))
-    sources_str = ', '.join(sources_available)
-    
-    # בונה את הפרומפט ל-Claude
-    articles_text = "\n\n".join([
-        f"[{i+1}] {art['source']}\nכותרת: {art['title']}\nתקציר: {art['summary'][:300]}...\nקישור: {art['link']}"
-        for i, art in enumerate(articles)
-    ])
-    
-    # פרומפט משופר לעברית טבעית יותר + מעקב מקורות
-    prompt = f"""אתה עיתונאי טכנולוגיה ישראלי מומחה בתחום הבינה המלאכותית.
-
-קיבלת {len(articles)} כתבות מהמקורות הבאים: {sources_str}
-
-המשימה שלך:
-1. קרא את כל הכתבות וזהה את הנושאים החשובים
-2. אם כמה מקורות דיווחו על אותו נושא - צלוב את המידע ביניהם
-3. סנן החוצה חדשות לא רלוונטיות או משניות
-4. כתוב סיכום תמציתי בעברית טבעית ושוטפת (לא תרגום מילולי!)
-5. השתמש בסדר מילים ישראלי טבעי (נושא-פועל-מושא)
-6. חלק לקטגוריות: מוצרים חדשים | מחקרים | חברות והשקעות | כללי
-
-דרישות כתיבה:
-- כתוב במשפטים קצרים וברורים
-- השתמש בשפה עיתונאית ישראלית (לא ספרותית)
-- דוגמאות טובות: "OpenAI השיקה...", "חוקרים גילו...", "החברה גייסה..."
-- דוגמאות רעות: "הושק על ידי OpenAI...", "התגלה כי..."
-- מקסימום 500 מילים
-
-הכתבות:
-{articles_text}
-
-פורמט הסיכום:
-# 📰 סיכום חדשות AI - {datetime.now().strftime('%d/%m/%Y')}
-
-## 🆕 מוצרים ושירותים חדשים
-[כאן הסיכום - אם יש. אם אין תוכן בקטגוריה זו, דלג עליה לגמרי]
-
-## 🔬 מחקר ופיתוח
-[כאן הסיכום - אם יש. אם אין תוכן בקטגוריה זו, דלג עליה לגמרי]
-
-## 💰 חברות והשקעות
-[כאן הסיכום - אם יש. אם אין תוכן בקטגוריה זו, דלג עליה לגמרי]
-
-## 📌 כללי
-[כאן הסיכום - אם יש. אם אין תוכן בקטגוריה זו, דלג עליה לגמרי]
-
----
-**מקורות זמינים:** {sources_str}
-**מקורות בשימוש:** [כתוב כאן רק את המקורות שבאמת השתמשת בהם בסיכום - מופרדים בפסיקים. לדוגמה: TechCrunch AI, VentureBeat AI, OpenAI Blog]
-"""
-
-    try:
-        # בדיקה שיש API Key
-        api_key = os.environ.get("ANTHROPIC_API_KEY")
-        if not api_key:
-            error_msg = "❌ שגיאה: ANTHROPIC_API_KEY לא נמצא"
-            print(error_msg)
-            return error_msg
         
-        # קריאה ישירה ל-API עם requests
-        headers = {
-            "x-api-key": api_key,
-            "anthropic-version": "2023-06-01",
-            "content-type": "application/json"
-        }
+        # Skip separators
+        if line == '---' or line.startswith('---'):
+            elements.append(Spacer(1, 0.2*inch))
+            continue
         
-        payload = {
-            "model": CLAUDE_MODEL,
-            "max_tokens": MAX_TOKENS,
-            "messages": [{"role": "user", "content": prompt}]
-        }
+        # Main title (# )
+        if line.startswith('# '):
+            continue  # Already have title
         
-        print("📡 שולח בקשה ל-Claude API...")
-        response = requests.post(ANTHROPIC_API_URL, headers=headers, json=payload, timeout=120)
+        # Section title (## )
+        elif line.startswith('## '):
+            text = line.replace('##', '').strip()
+            # Remove emojis
+            text = re.sub(r'[^\w\s\u0590-\u05FF:()-]', '', text)
+            para = Paragraph(text, section_title_style)
+            elements.append(para)
         
-        if response.status_code != 200:
-            error_msg = f"❌ שגיאה מה-API: {response.status_code} - {response.text}"
-            print(error_msg)
-            return error_msg
+        # Bold text (**...**)
+        elif line.startswith('**') and line.endswith('**'):
+            text = line.replace('**', '').strip()
+            bold_style = ParagraphStyle(
+                'Bold',
+                parent=content_style,
+                fontName='Helvetica-Bold',
+                fontSize=11
+            )
+            para = Paragraph(text, bold_style)
+            elements.append(para)
         
-        result = response.json()
-        summary = result['content'][0]['text']
+        # Bullet points (- or *)
+        elif line.startswith('- ') or line.startswith('* '):
+            text = '• ' + line[2:].strip()
+            text = text.replace('**', '')
+            para = Paragraph(text, content_style)
+            elements.append(para)
         
-        print("✅ סיכום הושלם!\n")
-        return summary
+        # Sources
+        elif line.startswith('**Sources:**') or line.startswith('**מקורות:**'):
+            elements.append(Spacer(1, 0.3*inch))
+            sources_style = ParagraphStyle(
+                'Sources',
+                parent=content_style,
+                fontSize=9,
+                textColor=colors.HexColor('#64748b'),
+                alignment=TA_CENTER
+            )
+            text = line.replace('**', '')
+            para = Paragraph(text, sources_style)
+            elements.append(para)
         
-    except Exception as e:
-        error_msg = f"❌ שגיאה בקריאה ל-Claude API: {str(e)}"
-        print(error_msg)
-        import traceback
-        traceback.print_exc()
-        return f"שגיאה בעיבוד: {str(e)}"
-
-
-# =====================================================
-# חלק 4: שליחה לטלגרם
-# =====================================================
-
-def send_to_telegram(message: str) -> bool:
-    """
-    שולח הודעה לטלגרם
-    """
-    TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
-    TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
-    
-    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
-        print("⚠️  טלגרם לא מוגדר (חסרים TELEGRAM_BOT_TOKEN או TELEGRAM_CHAT_ID)")
-        return False
-    
-    print(f"📱 שולח הודעה לטלגרם...")
-    
-    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    
-    # טלגרם מוגבל ל-4096 תווים להודעה
-    max_length = 4000
-    
-    try:
-        if len(message) > max_length:
-            # חלוקה להודעות מרובות
-            parts = [message[i:i+max_length] for i in range(0, len(message), max_length)]
-            print(f"📄 ההודעה ארוכה ({len(message)} תווים), מחלק ל-{len(parts)} חלקים...")
-            
-            for i, part in enumerate(parts, 1):
-                payload = {
-                    "chat_id": TELEGRAM_CHAT_ID,
-                    "text": f"📄 חלק {i}/{len(parts)}:\n\n{part}",
-                    "parse_mode": "Markdown"
-                }
-                response = requests.post(url, json=payload, timeout=30)
-                
-                if response.status_code != 200:
-                    print(f"⚠️  שגיאה בשליחת חלק {i}: {response.text}")
-                else:
-                    print(f"   ✓ חלק {i}/{len(parts)} נשלח")
-            print("✅ כל החלקים נשלחו לטלגרם!")
+        # Regular text
         else:
-            # הודעה בודדת
-            payload = {
-                "chat_id": TELEGRAM_CHAT_ID,
-                "text": message,
-                "parse_mode": "Markdown"
-            }
-            response = requests.post(url, json=payload, timeout=30)
-            
-            if response.status_code == 200:
-                print("✅ הסיכום נשלח לטלגרם! 🎉")
-                return True
-            else:
-                print(f"❌ שגיאה בשליחה לטלגרם: {response.status_code}")
-                print(f"   תגובה: {response.text}")
-                return False
-        
-        return True
-        
+            text = line.replace('**', '')
+            if text:
+                para = Paragraph(text, content_style)
+                elements.append(para)
+    
+    # Footer
+    elements.append(Spacer(1, 0.5*inch))
+    footer_style = ParagraphStyle(
+        'Footer',
+        parent=styles['Normal'],
+        fontSize=8,
+        textColor=colors.HexColor('#94a3b8'),
+        alignment=TA_CENTER
+    )
+    footer_text = f"Auto-generated - AI News Digest System - {datetime.now().strftime('%d/%m/%Y %H:%M')}"
+    footer = Paragraph(footer_text, footer_style)
+    elements.append(footer)
+    
+    # Build PDF
+    try:
+        doc.build(elements)
+        print(f"PDF created successfully: {filename}")
+        return filename
     except Exception as e:
-        print(f"❌ שגיאה בשליחה לטלגרם: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        return False
-
-
-# =====================================================
-# חלק 5: שמירת הפלט (TXT + JSON)
-# =====================================================
-
-def save_output(summary: str, output_format: str = "txt"):
-    """
-    שומר את הסיכום בפורמט הרצוי
-    """
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    
-    if output_format == "txt":
-        filename = f"ai_news_digest_{timestamp}.txt"
-        with open(filename, 'w', encoding='utf-8') as f:
-            f.write(summary)
-        print(f"💾 נשמר כ-TXT: {filename}")
-        return filename
-    
-    elif output_format == "json":
-        filename = f"ai_news_digest_{timestamp}.json"
-        data = {
-            "timestamp": timestamp,
-            "date": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            "summary": summary
-        }
-        with open(filename, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-        print(f"💾 נשמר כ-JSON: {filename}")
-        return filename
-
-
-# =====================================================
-# חלק 6: Main Function
-# =====================================================
-
-def main():
-    """
-    הפונקציה הראשית שמריצה את כל התהליך
-    """
-    print("=" * 60)
-    print("🚀 AI News Digest v3.0 - מתחיל לעבוד...")
-    print("=" * 60 + "\n")
-    
-    # שלב 1: איסוף חדשות
-    articles = fetch_news_from_sources()
-    
-    if not articles:
-        print("⚠️  לא נמצאו כתבות חדשות")
-        # שליחת הודעה גם אם אין חדשות
-        send_to_telegram("⚠️ לא נמצאו חדשות חדשות ב-24 שעות האחרונות")
-        return
-    
-    # שלב 2: ניתוח וסיכום
-    summary = analyze_and_summarize_with_claude(articles)
-    
-    # שלב 3: שמירה בפורמטים שונים
-    print("\n💾 שומר קבצים:")
-    
-    # TXT
-    txt_file = save_output(summary, output_format="txt")
-    
-    # PDF (אם זמין)
-    if PDF_AVAILABLE:
-        try:
-            pdf_file = create_pdf_digest(summary)
-            if pdf_file:
-                print(f"📄 נשמר כ-PDF: {pdf_file}")
-        except Exception as e:
-            print(f"⚠️  שגיאה ביצירת PDF: {e}")
-    else:
-        print("⚠️  PDF לא זמין (חסר pdf_generator.py)")
-    
-    print()
-    
-    # שלב 4: שליחה לטלגרם
-    send_to_telegram(summary)
-    
-    # שלב 5: הדפסת הסיכום למסך (לצורך GitHub Actions Logs)
-    print("\n" + "=" * 60)
-    print("📋 הסיכום:")
-    print("=" * 60)
-    print(summary)
-    print("\n" + "=" * 60)
-    print("✅ תהליך הושלם בהצלחה!")
-    print("   📱 נשלח לטלגרם")
-    print(f"   📄 קבצים: TXT" + (" + PDF" if PDF_AVAILABLE else ""))
-    print("=" * 60)
+        print(f"Error creating PDF: {e}")
+        return None
 
 
 if __name__ == "__main__":
-    main()
+    # Test example
+    sample = """# AI News Digest - 15/02/2026
+
+## New Products and Services
+
+**OpenAI launched GPT-5**
+OpenAI announced GPT-5 with improved capabilities.
+
+## Research and Development
+
+**LLM Understanding Breakthrough**
+Researchers discovered new mechanisms.
+
+---
+**Sources:** TechCrunch, VentureBeat
+"""
+    create_pdf_digest(sample, "test.pdf")
